@@ -5,11 +5,12 @@ import logging
 import os.path
 import sqlite3
 import tempfile
+from collections.abc import Generator
+from collections.abc import Sequence
 from typing import Callable
-from typing import Generator
-from typing import Sequence
 
 import pre_commit.constants as C
+from pre_commit import clientlib
 from pre_commit import file_lock
 from pre_commit import git
 from pre_commit.util import CalledProcessError
@@ -101,7 +102,7 @@ class Store:
             os.replace(tmpfile, self.db_path)
 
     @contextlib.contextmanager
-    def exclusive_lock(self) -> Generator[None, None, None]:
+    def exclusive_lock(self) -> Generator[None]:
         def blocked_cb() -> None:  # pragma: no cover (tests are in-process)
             logger.info('Locking pre-commit directory')
 
@@ -112,7 +113,7 @@ class Store:
     def connect(
             self,
             db_path: str | None = None,
-    ) -> Generator[sqlite3.Connection, None, None]:
+    ) -> Generator[sqlite3.Connection]:
         db_path = db_path or self.db_path
         # sqlite doesn't close its fd with its contextmanager >.<
         # contextlib.closing fixes this.
@@ -136,6 +137,7 @@ class Store:
             deps: Sequence[str],
             make_strategy: Callable[[str], None],
     ) -> str:
+        original_repo = repo
         repo = self.db_repo_name(repo, deps)
 
         def _get_result() -> str | None:
@@ -168,6 +170,9 @@ class Store:
                     'INSERT INTO repos (repo, ref, path) VALUES (?, ?, ?)',
                     [repo, ref, directory],
                 )
+
+            clientlib.warn_for_stages_on_repo_init(original_repo, directory)
+
         return directory
 
     def _complete_clone(self, ref: str, git_cmd: Callable[..., None]) -> None:

@@ -7,8 +7,8 @@ import shutil
 import sys
 import tempfile
 import urllib.request
-from typing import Generator
-from typing import Sequence
+from collections.abc import Generator
+from collections.abc import Sequence
 
 import pre_commit.constants as C
 from pre_commit import lang_base
@@ -34,7 +34,7 @@ def get_default_version() -> str:
     # Just detecting the executable does not suffice, because if rustup is
     # installed but no toolchain is available, then `cargo` exists but
     # cannot be used without installing a toolchain first.
-    if cmd_output_b('cargo', '--version', check=False)[0] == 0:
+    if cmd_output_b('cargo', '--version', check=False, cwd='/')[0] == 0:
         return 'system'
     else:
         return C.DEFAULT
@@ -61,7 +61,7 @@ def get_env_patch(target_dir: str, version: str) -> PatchesT:
 
 
 @contextlib.contextmanager
-def in_env(prefix: Prefix, version: str) -> Generator[None, None, None]:
+def in_env(prefix: Prefix, version: str) -> Generator[None]:
     envdir = lang_base.environment_dir(prefix, ENVIRONMENT_DIR, version)
     with envcontext(get_env_patch(envdir, version)):
         yield
@@ -134,7 +134,7 @@ def install_environment(
 
     packages_to_install: set[tuple[str, ...]] = {('--path', '.')}
     for cli_dep in cli_deps:
-        cli_dep = cli_dep[len('cli:'):]
+        cli_dep = cli_dep.removeprefix('cli:')
         package, _, crate_version = cli_dep.partition(':')
         if crate_version != '':
             packages_to_install.add((package, '--version', crate_version))

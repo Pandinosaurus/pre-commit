@@ -8,10 +8,10 @@ import shutil
 import stat
 import subprocess
 import sys
+from collections.abc import Generator
 from types import TracebackType
 from typing import Any
 from typing import Callable
-from typing import Generator
 
 from pre_commit import parse_shebang
 
@@ -25,7 +25,7 @@ def force_bytes(exc: Any) -> bytes:
 
 
 @contextlib.contextmanager
-def clean_path_on_failure(path: str) -> Generator[None, None, None]:
+def clean_path_on_failure(path: str) -> Generator[None]:
     """Cleans up the directory on an exceptional failure."""
     try:
         yield
@@ -36,7 +36,8 @@ def clean_path_on_failure(path: str) -> Generator[None, None, None]:
 
 
 def resource_text(filename: str) -> str:
-    return importlib.resources.read_text('pre_commit.resources', filename)
+    files = importlib.resources.files('pre_commit.resources')
+    return files.joinpath(filename).read_text()
 
 
 def make_executable(filename: str) -> None:
@@ -201,24 +202,37 @@ else:  # pragma: no cover
     cmd_output_p = cmd_output_b
 
 
-def rmtree(path: str) -> None:
-    """On windows, rmtree fails for readonly dirs."""
-    def handle_remove_readonly(
-            func: Callable[..., Any],
-            path: str,
-            exc: tuple[type[OSError], OSError, TracebackType],
+def _handle_readonly(
+        func: Callable[[str], object],
+        path: str,
+        exc: BaseException,
+) -> None:
+    if (
+            func in (os.rmdir, os.remove, os.unlink) and
+            isinstance(exc, OSError) and
+            exc.errno in {errno.EACCES, errno.EPERM}
+    ):
+        for p in (path, os.path.dirname(path)):
+            os.chmod(p, os.stat(p).st_mode | stat.S_IWUSR)
+        func(path)
+    else:
+        raise
+
+
+if sys.version_info < (3, 12):  # pragma: <3.12 cover
+    def _handle_readonly_old(
+        func: Callable[[str], object],
+        path: str,
+        excinfo: tuple[type[BaseException], BaseException, TracebackType],
     ) -> None:
-        excvalue = exc[1]
-        if (
-                func in (os.rmdir, os.remove, os.unlink) and
-                excvalue.errno in {errno.EACCES, errno.EPERM}
-        ):
-            for p in (path, os.path.dirname(path)):
-                os.chmod(p, os.stat(p).st_mode | stat.S_IWUSR)
-            func(path)
-        else:
-            raise
-    shutil.rmtree(path, ignore_errors=False, onerror=handle_remove_readonly)
+        return _handle_readonly(func, path, excinfo[1])
+
+    def rmtree(path: str) -> None:
+        shutil.rmtree(path, ignore_errors=False, onerror=_handle_readonly_old)
+else:  # pragma: >=3.12 cover
+    def rmtree(path: str) -> None:
+        """On windows, rmtree fails for readonly dirs."""
+        shutil.rmtree(path, ignore_errors=False, onexc=_handle_readonly)
 
 
 def win_exe(s: str) -> str:

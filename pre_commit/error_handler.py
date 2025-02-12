@@ -5,7 +5,7 @@ import functools
 import os.path
 import sys
 import traceback
-from typing import Generator
+from collections.abc import Generator
 from typing import IO
 
 import pre_commit.constants as C
@@ -68,7 +68,7 @@ def _log_and_exit(
 
 
 @contextlib.contextmanager
-def error_handler() -> Generator[None, None, None]:
+def error_handler() -> Generator[None]:
     try:
         yield
     except (Exception, KeyboardInterrupt) as e:

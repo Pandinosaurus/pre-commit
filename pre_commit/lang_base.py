@@ -5,12 +5,12 @@ import os
 import random
 import re
 import shlex
+from collections.abc import Generator
+from collections.abc import Sequence
 from typing import Any
 from typing import ContextManager
-from typing import Generator
 from typing import NoReturn
 from typing import Protocol
-from typing import Sequence
 
 import pre_commit.constants as C
 from pre_commit import parse_shebang
@@ -127,7 +127,7 @@ def no_install(
 
 
 @contextlib.contextmanager
-def no_env(prefix: Prefix, version: str) -> Generator[None, None, None]:
+def no_env(prefix: Prefix, version: str) -> Generator[None]:
     yield
 
 

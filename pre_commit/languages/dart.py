@@ -4,8 +4,8 @@ import contextlib
 import os.path
 import shutil
 import tempfile
-from typing import Generator
-from typing import Sequence
+from collections.abc import Generator
+from collections.abc import Sequence
 
 from pre_commit import lang_base
 from pre_commit.envcontext import envcontext
@@ -29,7 +29,7 @@ def get_env_patch(venv: str) -> PatchesT:
 
 
 @contextlib.contextmanager
-def in_env(prefix: Prefix, version: str) -> Generator[None, None, None]:
+def in_env(prefix: Prefix, version: str) -> Generator[None]:
     envdir = lang_base.environment_dir(prefix, ENVIRONMENT_DIR, version)
     with envcontext(get_env_patch(envdir)):
         yield

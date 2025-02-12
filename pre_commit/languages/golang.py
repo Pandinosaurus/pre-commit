@@ -12,17 +12,18 @@ import tempfile
 import urllib.error
 import urllib.request
 import zipfile
+from collections.abc import Generator
+from collections.abc import Sequence
 from typing import ContextManager
-from typing import Generator
 from typing import IO
 from typing import Protocol
-from typing import Sequence
 
 import pre_commit.constants as C
 from pre_commit import lang_base
 from pre_commit.envcontext import envcontext
 from pre_commit.envcontext import PatchesT
 from pre_commit.envcontext import Var
+from pre_commit.git import no_git_env
 from pre_commit.prefix import Prefix
 from pre_commit.util import cmd_output
 from pre_commit.util import rmtree
@@ -74,6 +75,7 @@ def get_env_patch(venv: str, version: str) -> PatchesT:
 
     return (
         ('GOROOT', os.path.join(venv, '.go')),
+        ('GOTOOLCHAIN', 'local'),
         (
             'PATH', (
                 os.path.join(venv, 'bin'), os.pathsep,
@@ -120,7 +122,7 @@ def _install_go(version: str, dest: str) -> None:
 
 
 @contextlib.contextmanager
-def in_env(prefix: Prefix, version: str) -> Generator[None, None, None]:
+def in_env(prefix: Prefix, version: str) -> Generator[None]:
     envdir = lang_base.environment_dir(prefix, ENVIRONMENT_DIR, version)
     with envcontext(get_env_patch(envdir, version)):
         yield
@@ -141,9 +143,10 @@ def install_environment(
     else:
         gopath = env_dir
 
-    env = dict(os.environ, GOPATH=gopath)
+    env = no_git_env(dict(os.environ, GOPATH=gopath))
     env.pop('GOBIN', None)
     if version != 'system':
+        env['GOTOOLCHAIN'] = 'local'
         env['GOROOT'] = os.path.join(env_dir, '.go')
         env['PATH'] = os.pathsep.join((
             os.path.join(env_dir, '.go', 'bin'), os.environ['PATH'],

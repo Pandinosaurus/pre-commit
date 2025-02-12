@@ -4,8 +4,8 @@ import contextlib
 import functools
 import os
 import sys
-from typing import Generator
-from typing import Sequence
+from collections.abc import Generator
+from collections.abc import Sequence
 
 import pre_commit.constants as C
 from pre_commit import lang_base
@@ -24,7 +24,7 @@ ENVIRONMENT_DIR = 'py_env'
 run_hook = lang_base.basic_run_hook
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _version_info(exe: str) -> str:
     prog = 'import sys;print(".".join(str(p) for p in sys.version_info))'
     try:
@@ -65,7 +65,7 @@ def _find_by_py_launcher(
         version: str,
 ) -> str | None:  # pragma: no cover (windows only)
     if version.startswith('python'):
-        num = version[len('python'):]
+        num = version.removeprefix('python')
         cmd = ('py', f'-{num}', '-c', 'import sys; print(sys.executable)')
         env = dict(os.environ, PYTHONIOENCODING='UTF-8')
         try:
@@ -124,7 +124,7 @@ def _sys_executable_matches(version: str) -> bool:
         return False
 
     try:
-        info = tuple(int(p) for p in version[len('python'):].split('.'))
+        info = tuple(int(p) for p in version.removeprefix('python').split('.'))
     except ValueError:
         return False
 
@@ -152,7 +152,7 @@ def norm_version(version: str) -> str | None:
 
 
 @contextlib.contextmanager
-def in_env(prefix: Prefix, version: str) -> Generator[None, None, None]:
+def in_env(prefix: Prefix, version: str) -> Generator[None]:
     envdir = lang_base.environment_dir(prefix, ENVIRONMENT_DIR, version)
     with envcontext(get_env_patch(envdir)):
         yield

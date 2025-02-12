@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from pre_commit import lang_base
 from pre_commit.languages.docker import docker_cmd
@@ -23,7 +23,7 @@ def run_hook(
         require_serial: bool,
         color: bool,
 ) -> tuple[int, bytes]:  # pragma: win32 no cover
-    cmd = docker_cmd() + lang_base.hook_cmd(entry, args)
+    cmd = docker_cmd(color=color) + lang_base.hook_cmd(entry, args)
     return lang_base.run_xargs(
         cmd,
         file_args,

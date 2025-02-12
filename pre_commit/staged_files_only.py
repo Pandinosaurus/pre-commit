@@ -4,7 +4,7 @@ import contextlib
 import logging
 import os.path
 import time
-from typing import Generator
+from collections.abc import Generator
 
 from pre_commit import git
 from pre_commit.errors import FatalError
@@ -33,7 +33,7 @@ def _git_apply(patch: str) -> None:
 
 
 @contextlib.contextmanager
-def _intent_to_add_cleared() -> Generator[None, None, None]:
+def _intent_to_add_cleared() -> Generator[None]:
     intent_to_add = git.intent_to_add_files()
     if intent_to_add:
         logger.warning('Unstaged intent-to-add files detected.')
@@ -48,7 +48,7 @@ def _intent_to_add_cleared() -> Generator[None, None, None]:
 
 
 @contextlib.contextmanager
-def _unstaged_changes_cleared(patch_dir: str) -> Generator[None, None, None]:
+def _unstaged_changes_cleared(patch_dir: str) -> Generator[None]:
     tree = cmd_output('git', 'write-tree')[1].strip()
     diff_cmd = (
         'git', 'diff-index', '--ignore-submodules', '--binary',
@@ -58,6 +58,11 @@ def _unstaged_changes_cleared(patch_dir: str) -> Generator[None, None, None]:
     if retcode == 0:
         # There weren't any staged files so we don't need to do anything
         # special
+        yield
+    elif retcode == 1 and not diff_stdout.strip():
+        # due to behaviour (probably a bug?) in git with crlf endings and
+        # autocrlf set to either `true` or `input` sometimes git will refuse
+        # to show a crlf-only diff to us :(
         yield
     elif retcode == 1 and diff_stdout.strip():
         patch_filename = f'patch{int(time.time())}-{os.getpid()}'
@@ -100,7 +105,7 @@ def _unstaged_changes_cleared(patch_dir: str) -> Generator[None, None, None]:
 
 
 @contextlib.contextmanager
-def staged_files_only(patch_dir: str) -> Generator[None, None, None]:
+def staged_files_only(patch_dir: str) -> Generator[None]:
     """Clear any unstaged changes from the git working directory inside this
     context.
     """

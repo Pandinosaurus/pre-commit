@@ -1,3 +1,174 @@
+4.1.0 - 2025-01-20
+==================
+
+### Features
+- Add `language: julia`.
+    - #3348 PR by @fredrikekre.
+    - #2689 issue @jmuchovej.
+
+### Fixes
+- Disable automatic toolchain switching for `language: golang`.
+    - #3304 PR by @AleksaC.
+    - #3300 issue by @AleksaC.
+    - #3149 issue by @nijel.
+- Fix `language: r` installation when initiated by RStudio.
+    - #3389 PR by @lorenzwalthert.
+    - #3385 issue by @lorenzwalthert.
+
+
+4.0.1 - 2024-10-08
+==================
+
+### Fixes
+- Fix `pre-commit migrate-config` for unquoted deprecated stages names with
+  purelib `pyyaml`.
+    - #3324 PR by @asottile.
+    - pre-commit-ci/issues#234 issue by @lorenzwalthert.
+
+4.0.0 - 2024-10-05
+==================
+
+### Features
+- Improve `pre-commit migrate-config` to handle more yaml formats.
+    - #3301 PR by @asottile.
+- Handle `stages` deprecation in `pre-commit migrate-config`.
+    - #3302 PR by @asottile.
+    - #2732 issue by @asottile.
+- Upgrade `ruby-build`.
+    - #3199 PR by @ThisGuyCodes.
+- Add "sensible regex" warnings to `repo: meta`.
+    - #3311 PR by @asottile.
+- Add warnings for deprecated `stages` (`commit` -> `pre-commit`, `push` ->
+  `pre-push`, `merge-commit` -> `pre-merge-commit`).
+    - #3312 PR by @asottile.
+    - #3313 PR by @asottile.
+    - #3315 PR by @asottile.
+    - #2732 issue by @asottile.
+
+### Migrating
+- `language: python_venv` has been removed -- use `language: python` instead.
+    - #3320 PR by @asottile.
+    - #2734 issue by @asottile.
+
+3.8.0 - 2024-07-28
+==================
+
+### Features
+- Implement health checks for `language: r` so environments are recreated if
+  the system version of R changes.
+    - #3206 issue by @lorenzwalthert.
+    - #3265 PR by @lorenzwalthert.
+
+3.7.1 - 2024-05-10
+==================
+
+### Fixes
+- Fix `language: rust` default language version check when `rust-toolchain.toml`
+  is present.
+    - issue by @gaborbernat.
+    - #3201 PR by @asottile.
+
+3.7.0 - 2024-03-24
+==================
+
+### Features
+- Use a tty for `docker` and `docker_image` hooks when `--color` is specified.
+    - #3122 PR by @glehmann.
+
+### Fixes
+- Fix `fail_fast` for individual hooks stopping when previous hooks had failed.
+    - #3167 issue by @tp832944.
+    - #3168 PR by @asottile.
+
+### Updating
+- The per-hook behaviour of `fail_fast` was fixed.  If you want the pre-3.7.0
+  behaviour, add `fail_fast: true` to all hooks before the last `fail_fast`
+  hook.
+
+3.6.2 - 2024-02-18
+==================
+
+### Fixes
+- Fix building golang hooks during `git commit --all`.
+    - #3130 PR by @asottile.
+    - #2722 issue by @pestanko and @matthewhughes934.
+
+3.6.1 - 2024-02-10
+==================
+
+### Fixes
+- Remove `PYTHONEXECUTABLE` from environment when running.
+    - #3110 PR by @untitaker.
+- Handle staged-files-only with only a crlf diff.
+    - #3126 PR by @asottile.
+    - issue by @tyyrok.
+
+3.6.0 - 2023-12-09
+==================
+
+### Features
+- Check `minimum_pre_commit_version` first when parsing configs.
+    - #3092 PR by @asottile.
+
+### Fixes
+- Fix deprecation warnings for `importlib.resources`.
+    - #3043 PR by @asottile.
+- Fix deprecation warnings for rmtree.
+    - #3079 PR by @edgarrmondragon.
+
+### Updating
+- Drop support for python<3.9.
+    - #3042 PR by @asottile.
+    - #3093 PR by @asottile.
+
+3.5.0 - 2023-10-13
+==================
+
+### Features
+- Improve performance of `check-hooks-apply` and `check-useless-excludes`.
+    - #2998 PR by @mxr.
+    - #2935 issue by @mxr.
+
+### Fixes
+- Use `time.monotonic()` for more accurate hook timing.
+    - #3024 PR by @adamchainz.
+
+### Migrating
+- Require npm 6.x+ for `language: node` hooks.
+    - #2996 PR by @RoelAdriaans.
+    - #1983 issue by @henryiii.
+
+3.4.0 - 2023-09-02
+==================
+
+### Features
+- Add `language: haskell`.
+    - #2932 by @alunduil.
+- Improve cpu count detection when run under cgroups.
+    - #2979 PR by @jdb8.
+    - #2978 issue by @jdb8.
+
+### Fixes
+- Handle negative exit codes from hooks receiving posix signals.
+    - #2971 PR by @chriskuehl.
+    - #2970 issue by @chriskuehl.
+
+3.3.3 - 2023-06-13
+==================
+
+### Fixes
+- Work around OS packagers setting `--install-dir` / `--bin-dir` in gem settings.
+    - #2905 PR by @jaysoffian.
+    - #2799 issue by @lmilbaum.
+
+3.3.2 - 2023-05-17
+==================
+
+### Fixes
+- Work around `r` on windows sometimes double-un-quoting arguments.
+    - #2885 PR by @lorenzwalthert.
+    - #2870 issue by @lorenzwalthert.
+
 3.3.1 - 2023-05-02
 ==================
 

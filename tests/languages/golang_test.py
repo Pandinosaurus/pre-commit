@@ -7,10 +7,18 @@ import re_assert
 
 import pre_commit.constants as C
 from pre_commit import lang_base
+from pre_commit.commands.install_uninstall import install
 from pre_commit.envcontext import envcontext
 from pre_commit.languages import golang
 from pre_commit.store import _make_local_repo
+from pre_commit.util import CalledProcessError
+from pre_commit.util import cmd_output
+from testing.fixtures import add_config_to_repo
+from testing.fixtures import make_config_from_repo
 from testing.language_helpers import run_language
+from testing.util import cmd_output_mocked_pre_commit_home
+from testing.util import cwd
+from testing.util import git_commit
 
 
 ACTUAL_GET_DEFAULT_VERSION = golang.get_default_version.__wrapped__
@@ -111,11 +119,11 @@ def test_golang_versioned(tmp_path):
         tmp_path,
         golang,
         'go version',
-        version='1.18.4',
+        version='1.21.1',
     )
 
     assert ret == 0
-    assert out.startswith(b'go version go1.18.4')
+    assert out.startswith(b'go version go1.21.1')
 
 
 def test_local_golang_additional_deps(tmp_path):
@@ -128,9 +136,101 @@ def test_local_golang_additional_deps(tmp_path):
         deps=('golang.org/x/example/hello@latest',),
     )
 
-    assert ret == (0, b'Hello, Go examples!\n')
+    assert ret == (0, b'Hello, world!\n')
 
 
 def test_golang_hook_still_works_when_gobin_is_set(tmp_path):
     with envcontext((('GOBIN', str(tmp_path.joinpath('gobin'))),)):
         test_golang_system(tmp_path)
+
+
+def test_during_commit_all(tmp_path, tempdir_factory, store, in_git_dir):
+    hook_dir = tmp_path.joinpath('hook')
+    hook_dir.mkdir()
+    _make_hello_world(hook_dir)
+    hook_dir.joinpath('.pre-commit-hooks.yaml').write_text(
+        '-   id: hello-world\n'
+        '    name: hello world\n'
+        '    entry: golang-hello-world\n'
+        '    language: golang\n'
+        '    always_run: true\n',
+    )
+    cmd_output('git', 'init', hook_dir)
+    cmd_output('git', 'add', '.', cwd=hook_dir)
+    git_commit(cwd=hook_dir)
+
+    add_config_to_repo(in_git_dir, make_config_from_repo(hook_dir))
+
+    assert not install(C.CONFIG_FILE, store, hook_types=['pre-commit'])
+
+    git_commit(
+        fn=cmd_output_mocked_pre_commit_home,
+        tempdir_factory=tempdir_factory,
+    )
+
+
+def test_automatic_toolchain_switching(tmp_path):
+    go_mod = '''\
+module toolchain-version-test
+
+go 1.23.1
+'''
+    main_go = '''\
+package main
+
+func main() {}
+'''
+    tmp_path.joinpath('go.mod').write_text(go_mod)
+    mod_dir = tmp_path.joinpath('toolchain-version-test')
+    mod_dir.mkdir()
+    main_file = mod_dir.joinpath('main.go')
+    main_file.write_text(main_go)
+
+    with pytest.raises(CalledProcessError) as excinfo:
+        run_language(
+            path=tmp_path,
+            language=golang,
+            version='1.22.0',
+            exe='golang-version-test',
+        )
+
+    assert 'go.mod requires go >= 1.23.1' in excinfo.value.stderr.decode()
+
+
+def test_automatic_toolchain_switching_go_fmt(tmp_path, monkeypatch):
+    go_mod_hook = '''\
+module toolchain-version-test
+
+go 1.22.0
+'''
+    go_mod = '''\
+module toolchain-version-test
+
+go 1.23.1
+'''
+    main_go = '''\
+package main
+
+func main() {}
+'''
+    hook_dir = tmp_path.joinpath('hook')
+    hook_dir.mkdir()
+    hook_dir.joinpath('go.mod').write_text(go_mod_hook)
+
+    test_dir = tmp_path.joinpath('test')
+    test_dir.mkdir()
+    test_dir.joinpath('go.mod').write_text(go_mod)
+    main_file = test_dir.joinpath('main.go')
+    main_file.write_text(main_go)
+
+    with cwd(test_dir):
+        ret, out = run_language(
+            path=hook_dir,
+            language=golang,
+            version='1.22.0',
+            exe='go fmt',
+            file_args=(str(main_file),),
+        )
+
+        assert ret == 1
+        assert 'go.mod requires go >= 1.23.1' in out.decode()

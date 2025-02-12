@@ -3,16 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import os
-import shlex
+from collections.abc import Sequence
 from typing import Any
-from typing import Sequence
 
 import pre_commit.constants as C
 from pre_commit.all_languages import languages
 from pre_commit.clientlib import load_manifest
 from pre_commit.clientlib import LOCAL
 from pre_commit.clientlib import META
-from pre_commit.clientlib import parse_version
 from pre_commit.hook import Hook
 from pre_commit.lang_base import environment_dir
 from pre_commit.prefix import Prefix
@@ -69,14 +67,6 @@ def _hook_install(hook: Hook) -> None:
     logger.info('Once installed this environment will be reused.')
     logger.info('This may take a few minutes...')
 
-    if hook.language == 'python_venv':
-        logger.warning(
-            f'`repo: {hook.src}` uses deprecated `language: python_venv`.  '
-            f'This is an alias for `language: python`.  '
-            f'Often `pre-commit autoupdate --repo {shlex.quote(hook.src)}` '
-            f'will fix this.',
-        )
-
     lang = languages[hook.language]
     assert lang.ENVIRONMENT_DIR is not None
 
@@ -123,15 +113,6 @@ def _hook(
     ret, rest = dict(hook_dicts[0]), hook_dicts[1:]
     for dct in rest:
         ret.update(dct)
-
-    version = ret['minimum_pre_commit_version']
-    if parse_version(version) > parse_version(C.VERSION):
-        logger.error(
-            f'The hook `{ret["id"]}` requires pre-commit version {version} '
-            f'but version {C.VERSION} is installed.  '
-            f'Perhaps run `pip install --upgrade pre-commit`.',
-        )
-        exit(1)
 
     lang = ret['language']
     if ret['language_version'] == C.DEFAULT:

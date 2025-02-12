@@ -9,7 +9,6 @@ from unittest import mock
 
 import cfgv
 import pytest
-import re_assert
 
 import pre_commit.constants as C
 from pre_commit import lang_base
@@ -27,7 +26,6 @@ from pre_commit.util import cmd_output
 from pre_commit.util import cmd_output_b
 from testing.fixtures import make_config_from_repo
 from testing.fixtures import make_repo
-from testing.fixtures import modify_manifest
 from testing.language_helpers import run_language
 from testing.util import cwd
 from testing.util import get_resource_path
@@ -80,24 +78,6 @@ def _test_hook_repo(
     ret, out = _hook_run(hook, args, color=color)
     assert ret == expected_return_code
     assert out == expected
-
-
-def test_python_venv_deprecation(store, caplog):
-    config = {
-        'repo': 'local',
-        'hooks': [{
-            'id': 'example',
-            'name': 'example',
-            'language': 'python_venv',
-            'entry': 'echo hi',
-        }],
-    }
-    _get_hook(config, store, 'example')
-    assert caplog.messages[-1] == (
-        '`repo: local` uses deprecated `language: python_venv`.  '
-        'This is an alias for `language: python`.  '
-        'Often `pre-commit autoupdate --repo local` will fix this.'
-    )
 
 
 def test_system_hook_with_spaces(tempdir_factory, store):
@@ -242,16 +222,16 @@ def test_unknown_keys(store, caplog):
     assert msg == 'Unexpected key(s) present on local => too-much: foo, hello'
 
 
-def test_reinstall(tempdir_factory, store, log_info_mock):
+def test_reinstall(tempdir_factory, store, caplog):
     path = make_repo(tempdir_factory, 'python_hooks_repo')
     config = make_config_from_repo(path)
     _get_hook(config, store, 'foo')
     # We print some logging during clone (1) + install (3)
-    assert log_info_mock.call_count == 4
-    log_info_mock.reset_mock()
+    assert len(caplog.record_tuples) == 4
+    caplog.clear()
     # Reinstall on another run should not trigger another install
     _get_hook(config, store, 'foo')
-    assert log_info_mock.call_count == 0
+    assert len(caplog.record_tuples) == 0
 
 
 def test_control_c_control_c_on_install(tempdir_factory, store):
@@ -431,32 +411,6 @@ def test_hook_id_not_present(tempdir_factory, store, caplog):
         f'Typo? Perhaps it is introduced in a newer version?  '
         f'Often `pre-commit autoupdate` fixes this.'
     )
-
-
-def test_too_new_version(tempdir_factory, store, caplog):
-    path = make_repo(tempdir_factory, 'script_hooks_repo')
-    with modify_manifest(path) as manifest:
-        manifest[0]['minimum_pre_commit_version'] = '999.0.0'
-    config = make_config_from_repo(path)
-    with pytest.raises(SystemExit):
-        _get_hook(config, store, 'bash_hook')
-    _, msg = caplog.messages
-    pattern = re_assert.Matches(
-        r'^The hook `bash_hook` requires pre-commit version 999\.0\.0 but '
-        r'version \d+\.\d+\.\d+ is installed.  '
-        r'Perhaps run `pip install --upgrade pre-commit`\.$',
-    )
-    pattern.assert_matches(msg)
-
-
-@pytest.mark.parametrize('version', ('0.1.0', C.VERSION))
-def test_versions_ok(tempdir_factory, store, version):
-    path = make_repo(tempdir_factory, 'script_hooks_repo')
-    with modify_manifest(path) as manifest:
-        manifest[0]['minimum_pre_commit_version'] = version
-    config = make_config_from_repo(path)
-    # Should succeed
-    _get_hook(config, store, 'bash_hook')
 
 
 def test_manifest_hooks(tempdir_factory, store):

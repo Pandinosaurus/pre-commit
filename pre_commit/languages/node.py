@@ -4,8 +4,8 @@ import contextlib
 import functools
 import os
 import sys
-from typing import Generator
-from typing import Sequence
+from collections.abc import Generator
+from collections.abc import Sequence
 
 import pre_commit.constants as C
 from pre_commit import lang_base
@@ -59,7 +59,7 @@ def get_env_patch(venv: str) -> PatchesT:
 
 
 @contextlib.contextmanager
-def in_env(prefix: Prefix, version: str) -> Generator[None, None, None]:
+def in_env(prefix: Prefix, version: str) -> Generator[None]:
     envdir = lang_base.environment_dir(prefix, ENVIRONMENT_DIR, version)
     with envcontext(get_env_patch(envdir)):
         yield
@@ -93,7 +93,7 @@ def install_environment(
         # install as if we installed from git
 
         local_install_cmd = (
-            'npm', 'install', '--dev', '--prod',
+            'npm', 'install', '--include=dev', '--include=prod',
             '--ignore-prepublish', '--no-progress', '--no-save',
         )
         lang_base.setup_cmd(prefix, local_install_cmd)

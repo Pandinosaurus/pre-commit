@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 import pre_commit.constants as C
 from pre_commit import clientlib
@@ -36,6 +36,9 @@ logger = logging.getLogger('pre_commit')
 # to install packages to the wrong place.  We don't want anything to deal with
 # pyvenv
 os.environ.pop('__PYVENV_LAUNCHER__', None)
+
+# https://github.com/getsentry/snuba/pull/5388
+os.environ.pop('PYTHONEXECUTABLE', None)
 
 COMMANDS_NO_GIT = {
     'clean', 'gc', 'init-templatedir', 'sample-config',

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import multiprocessing
 import os
 import sys
 import time
@@ -10,6 +11,40 @@ import pytest
 
 from pre_commit import parse_shebang
 from pre_commit import xargs
+
+
+def test_cpu_count_sched_getaffinity_exists():
+    with mock.patch.object(
+            os, 'sched_getaffinity', create=True, return_value=set(range(345)),
+    ):
+        assert xargs.cpu_count() == 345
+
+
+@pytest.fixture
+def no_sched_getaffinity():
+    # Simulates an OS without os.sched_getaffinity available (mac/windows)
+    # https://docs.python.org/3/library/os.html#interface-to-the-scheduler
+    with mock.patch.object(
+            os,
+            'sched_getaffinity',
+            create=True,
+            side_effect=AttributeError,
+    ):
+        yield
+
+
+def test_cpu_count_multiprocessing_cpu_count_implemented(no_sched_getaffinity):
+    with mock.patch.object(multiprocessing, 'cpu_count', return_value=123):
+        assert xargs.cpu_count() == 123
+
+
+def test_cpu_count_multiprocessing_cpu_count_not_implemented(
+        no_sched_getaffinity,
+):
+    with mock.patch.object(
+            multiprocessing, 'cpu_count', side_effect=NotImplementedError,
+    ):
+        assert xargs.cpu_count() == 1
 
 
 @pytest.mark.parametrize(
@@ -145,6 +180,15 @@ def test_xargs_retcode_normal():
     # takes the maximum return code
     ret, _ = xargs.xargs(exit_cmd, ('0', '5', '1'), _max_length=max_length)
     assert ret == 5
+
+
+@pytest.mark.xfail(sys.platform == 'win32', reason='posix only')
+def test_xargs_retcode_killed_by_signal():
+    ret, _ = xargs.xargs(
+        parse_shebang.normalize_cmd(('bash', '-c', 'kill -9 $$', '--')),
+        ('foo', 'bar'),
+    )
+    assert ret == -9
 
 
 def test_xargs_concurrency():

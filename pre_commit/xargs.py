@@ -7,12 +7,12 @@ import multiprocessing
 import os
 import subprocess
 import sys
+from collections.abc import Generator
+from collections.abc import Iterable
+from collections.abc import MutableMapping
+from collections.abc import Sequence
 from typing import Any
 from typing import Callable
-from typing import Generator
-from typing import Iterable
-from typing import MutableMapping
-from typing import Sequence
 from typing import TypeVar
 
 from pre_commit import parse_shebang
@@ -24,6 +24,14 @@ TRet = TypeVar('TRet')
 
 
 def cpu_count() -> int:
+    try:
+        # On systems that support it, this will return a more accurate count of
+        # usable CPUs for the current process, which will take into account
+        # cgroup limits
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        pass
+
     try:
         return multiprocessing.cpu_count()
     except NotImplementedError:
@@ -112,7 +120,6 @@ def partition(
 @contextlib.contextmanager
 def _thread_mapper(maxsize: int) -> Generator[
     Callable[[Callable[[TArg], TRet], Iterable[TArg]], Iterable[TRet]],
-    None, None,
 ]:
     if maxsize == 1:
         yield map
@@ -170,7 +177,8 @@ def xargs(
         results = thread_map(run_cmd_partition, partitions)
 
         for proc_retcode, proc_out, _ in results:
-            retcode = max(retcode, proc_retcode)
+            if abs(proc_retcode) > abs(retcode):
+                retcode = proc_retcode
             stdout += proc_out
 
     return retcode, stdout

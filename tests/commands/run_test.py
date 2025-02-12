@@ -4,7 +4,7 @@ import os.path
 import shlex
 import sys
 import time
-from typing import MutableMapping
+from collections.abc import MutableMapping
 from unittest import mock
 
 import pytest
@@ -293,7 +293,7 @@ def test_verbose_duration(cap_out, store, in_git_dir, t1, t2, expected):
     write_config('.', {'repo': 'meta', 'hooks': [{'id': 'identity'}]})
     cmd_output('git', 'add', '.')
     opts = run_opts(verbose=True)
-    with mock.patch.object(time, 'time', side_effect=(t1, t2)):
+    with mock.patch.object(time, 'monotonic', side_effect=(t1, t2)):
         ret, printed = _do_run(cap_out, store, str(in_git_dir), opts)
     assert ret == 0
     assert expected in printed
@@ -1088,6 +1088,22 @@ def test_fail_fast_per_hook(cap_out, store, repo_with_failing_hook):
     assert printed.count(b'Failing hook') == 1
 
 
+def test_fail_fast_not_prev_failures(cap_out, store, repo_with_failing_hook):
+    with modify_config() as config:
+        config['repos'].append({
+            'repo': 'meta',
+            'hooks': [
+                {'id': 'identity', 'fail_fast': True},
+                {'id': 'identity', 'name': 'run me!'},
+            ],
+        })
+    stage_a_file()
+
+    ret, printed = _do_run(cap_out, store, repo_with_failing_hook, run_opts())
+    # should still run the last hook since the `fail_fast` one didn't fail
+    assert printed.count(b'run me!') == 1
+
+
 def test_classifier_removes_dne():
     classifier = Classifier(('this_file_does_not_exist',))
     assert classifier.filenames == []
@@ -1127,8 +1143,8 @@ def test_classifier_empty_types_or(tmpdir):
             types_or=[],
             exclude_types=[],
         )
-        assert for_symlink == ['foo']
-        assert for_file == ['bar']
+        assert tuple(for_symlink) == ('foo',)
+        assert tuple(for_file) == ('bar',)
 
 
 @pytest.fixture
@@ -1142,33 +1158,33 @@ def some_filenames():
 
 def test_include_exclude_base_case(some_filenames):
     ret = filter_by_include_exclude(some_filenames, '', '^$')
-    assert ret == [
+    assert tuple(ret) == (
         '.pre-commit-hooks.yaml',
         'pre_commit/git.py',
         'pre_commit/main.py',
-    ]
+    )
 
 
 def test_matches_broken_symlink(tmpdir):
     with tmpdir.as_cwd():
         os.symlink('does-not-exist', 'link')
         ret = filter_by_include_exclude({'link'}, '', '^$')
-        assert ret == ['link']
+        assert tuple(ret) == ('link',)
 
 
 def test_include_exclude_total_match(some_filenames):
     ret = filter_by_include_exclude(some_filenames, r'^.*\.py$', '^$')
-    assert ret == ['pre_commit/git.py', 'pre_commit/main.py']
+    assert tuple(ret) == ('pre_commit/git.py', 'pre_commit/main.py')
 
 
 def test_include_exclude_does_search_instead_of_match(some_filenames):
     ret = filter_by_include_exclude(some_filenames, r'\.yaml$', '^$')
-    assert ret == ['.pre-commit-hooks.yaml']
+    assert tuple(ret) == ('.pre-commit-hooks.yaml',)
 
 
 def test_include_exclude_exclude_removes_files(some_filenames):
     ret = filter_by_include_exclude(some_filenames, '', r'\.py$')
-    assert ret == ['.pre-commit-hooks.yaml']
+    assert tuple(ret) == ('.pre-commit-hooks.yaml',)
 
 
 def test_args_hook_only(cap_out, store, repo_with_passing_hook):

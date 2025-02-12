@@ -6,9 +6,9 @@ import importlib.resources
 import os.path
 import shutil
 import tarfile
-from typing import Generator
+from collections.abc import Generator
+from collections.abc import Sequence
 from typing import IO
-from typing import Sequence
 
 import pre_commit.constants as C
 from pre_commit import lang_base
@@ -25,7 +25,8 @@ run_hook = lang_base.basic_run_hook
 
 
 def _resource_bytesio(filename: str) -> IO[bytes]:
-    return importlib.resources.open_binary('pre_commit.resources', filename)
+    files = importlib.resources.files('pre_commit.resources')
+    return files.joinpath(filename).open('rb')
 
 
 @functools.lru_cache(maxsize=1)
@@ -72,7 +73,7 @@ def get_env_patch(
 
 
 @contextlib.contextmanager
-def in_env(prefix: Prefix, version: str) -> Generator[None, None, None]:
+def in_env(prefix: Prefix, version: str) -> Generator[None]:
     envdir = lang_base.environment_dir(prefix, ENVIRONMENT_DIR, version)
     with envcontext(get_env_patch(envdir, version)):
         yield
@@ -114,6 +115,8 @@ def _install_ruby(
 def install_environment(
         prefix: Prefix, version: str, additional_dependencies: Sequence[str],
 ) -> None:
+    envdir = lang_base.environment_dir(prefix, ENVIRONMENT_DIR, version)
+
     if version != 'system':  # pragma: win32 no cover
         _install_rbenv(prefix, version)
         with in_env(prefix, version):
@@ -135,6 +138,8 @@ def install_environment(
                 'gem', 'install',
                 '--no-document', '--no-format-executable',
                 '--no-user-install',
+                '--install-dir', os.path.join(envdir, 'gems'),
+                '--bindir', os.path.join(envdir, 'gems', 'bin'),
                 *prefix.star('.gem'), *additional_dependencies,
             ),
         )
